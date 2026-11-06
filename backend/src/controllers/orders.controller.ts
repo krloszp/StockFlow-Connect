@@ -30,10 +30,20 @@ export const getAdminOrdersController = async (req: Request, res: Response, next
 
 export const updateOrderStatusController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const { status } = req.body;
     const order = await ordersService.updateOrderStatus(id, status);
     res.status(200).json({ message: 'Estado del pedido actualizado.', order });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getClientOrdersController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { phone } = req.query;
+    const result = await ordersService.getOrdersByPhone(phone as string);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

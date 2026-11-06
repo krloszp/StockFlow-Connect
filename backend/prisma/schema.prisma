@@ -4,24 +4,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-enum Role {
-  ADMIN
-}
-
-enum PaymentMethod {
-  EFECTIVO
-  TRANSFERENCIA
-  TARJETA
-}
-
-enum OrderStatus {
-  PENDIENTE
-  COMPLETADO
-  CANCELADO
 }
 
 model User {
@@ -29,9 +13,27 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         Role     @default(ADMIN)
+  phone        String?
+  documentId   String?
+  role         String   @default("ADMIN")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model BusinessSettings {
+  id             String   @id @default(uuid())
+  name           String   @default("StockFlow Connect")
+  documentType   String?  @default("NIT")
+  documentNumber String?
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  receiptMessage String?  @default("¡Gracias por su compra!")
+  currency       String   @default("COP")
+  logoUrl        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Supplier {
@@ -63,14 +65,44 @@ model Product {
   orderItems   OrderItem[]
 }
 
+model Customer {
+  id          String            @id @default(uuid())
+  cedula      String            @unique
+  name        String
+  phone       String?
+  address     String?
+  balance     Float             @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  sales       Sale[]
+  orders      Order[]
+  payments    CustomerPayment[]
+}
+
+model CustomerPayment {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount      Float
+  note        String?
+  createdAt   DateTime  @default(now())
+}
+
 model Sale {
-  id            String        @id @default(uuid())
-  totalAmount   Float
-  paymentMethod PaymentMethod @default(EFECTIVO)
-  cashGiven     Float?
-  changeGiven   Float?
-  createdAt     DateTime      @default(now())
-  items         SaleItem[]
+  id              String      @id @default(uuid())
+  totalAmount     Float
+  paymentMethod   String      @default("EFECTIVO")
+  cashGiven       Float?
+  changeGiven     Float?
+  pendingAmount   Float?      @default(0)
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerCedula  String?
+  customerName    String?
+  customerPhone   String?
+  customerNote    String?
+  createdAt       DateTime    @default(now())
+  items           SaleItem[]
 }
 
 model SaleItem {
@@ -85,14 +117,17 @@ model SaleItem {
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  customerName  String
-  customerPhone String
-  totalAmount   Float
-  status        OrderStatus @default(PENDIENTE)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  items         OrderItem[]
+  id              String      @id @default(uuid())
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerCedula  String?
+  customerName    String
+  customerPhone   String
+  totalAmount     Float
+  status          String      @default("PENDIENTE")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
 }
 
 model OrderItem {

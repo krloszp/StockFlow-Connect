@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Package, ShoppingCart, 
-  Users, BarChart3, TrendingUp, AlertTriangle, ChevronUp, ChevronDown, Sparkles, X 
+  Package, 
+  TrendingUp, AlertTriangle, ChevronUp, ChevronDown, Sparkles, X 
 } from 'lucide-react';
 import { api } from '../services/api';
 
 export const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState({ salesToday: 0, totalStock: 0, criticalAlerts: 0 });
-  const [loading, setLoading] = useState(true);
 
   // Estado para la Bienvenida Desplegable Animada
   const [showWelcome, setShowWelcome] = useState(true);
@@ -19,7 +18,6 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        setLoading(true);
         const [prodRes, alertRes, salesRes] = await Promise.all([
           api.get('/products'),
           api.get('/products/alerts'),
@@ -33,8 +31,6 @@ export const Dashboard: React.FC = () => {
         setMetrics({ salesToday, totalStock, criticalAlerts });
       } catch (err) {
         console.error('Error al cargar datos del Dashboard:', err);
-      } finally {
-        setLoading(false);
       }
     };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -7,18 +7,50 @@ import { Inventory } from './pages/Inventory';
 import { POS } from './pages/POS';
 import { Suppliers } from './pages/Suppliers';
 import { Catalog } from './pages/Catalog';
-import { ShoppingBag, LogOut, Package, ShoppingCart, Users, BarChart3, Globe, CheckCircle } from 'lucide-react';
+import { ClientOrders } from './pages/ClientOrders';
+import { SalesHistory } from './pages/SalesHistory';
+import { Customers } from './pages/Customers';
+import { Settings } from './pages/Settings';
+import { api } from './services/api';
+import { 
+  ShoppingBag, 
+  LogOut, 
+  Package, 
+  ShoppingCart, 
+  Users, 
+  Truck,
+  BarChart3, 
+  Globe, 
+  CheckCircle, 
+  ClipboardList, 
+  History,
+  Settings as SettingsIcon 
+} from 'lucide-react';
 
-const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; setTab: (t: string) => void }> = ({ children, currentTab, setTab }) => {
+const AdminLayout: React.FC<{ 
+  children: React.ReactNode; 
+  currentTab: string; 
+  setTab: (t: string) => void;
+  businessName: string;
+  setBusinessName: (name: string) => void;
+}> = ({ children, currentTab, setTab, businessName, setBusinessName }) => {
   const navigate = useNavigate();
-  const userStr = localStorage.getItem('stockflow_user');
-  const user = userStr ? JSON.parse(userStr) : null;
 
   const handleLogout = () => {
     localStorage.removeItem('stockflow_token');
     localStorage.removeItem('stockflow_user');
     navigate('/login');
   };
+
+  useEffect(() => {
+    const handleBizChanged = (e: any) => {
+      if (e.detail?.name) {
+        setBusinessName(e.detail.name);
+      }
+    };
+    window.addEventListener('stockflow_business_changed', handleBizChanged);
+    return () => window.removeEventListener('stockflow_business_changed', handleBizChanged);
+  }, [setBusinessName]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-dark)' }}>
@@ -57,11 +89,32 @@ const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; set
               <ShoppingCart size={18} /> Venta Rápida (POS)
             </button>
             <button
+              className={`btn ${currentTab === 'sales-history' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => setTab('sales-history')}
+            >
+              <History size={18} /> Historial de Ventas
+            </button>
+            <button
+              className={`btn ${currentTab === 'customers' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => setTab('customers')}
+            >
+              <Users size={18} /> Clientes
+            </button>
+            <button
               className={`btn ${currentTab === 'suppliers' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ justifyContent: 'flex-start' }}
               onClick={() => setTab('suppliers')}
             >
-              <Users size={18} /> Proveedores
+              <Truck size={18} /> Proveedores
+            </button>
+            <button
+              className={`btn ${currentTab === 'settings' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => setTab('settings')}
+            >
+              <SettingsIcon size={18} /> Configuración
             </button>
             <button
               className="btn btn-secondary"
@@ -69,6 +122,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; set
               onClick={() => window.open('/catalogo', '_blank')}
             >
               <Globe size={18} /> Portal B2C (Ver Tienda)
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ justifyContent: 'flex-start', color: 'var(--primary-light)' }}
+              onClick={() => window.open('/mis-pedidos', '_blank')}
+            >
+              <ClipboardList size={18} /> Pedidos del Cliente
             </button>
           </nav>
         </div>
@@ -80,7 +140,12 @@ const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; set
               <span style={{ fontWeight: 600, color: 'var(--accent)' }}>En Línea</span>
             </div>
             <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>StockFlow v1.0.0</div>
-            <div style={{ color: 'var(--text-dim)' }}>Comercio: Montería Piloto</div>
+            <div 
+              style={{ color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={businessName}
+            >
+              Comercio: {businessName}
+            </div>
           </div>
           <button
             onClick={handleLogout}
@@ -92,7 +157,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; set
         </div>
       </aside>
 
-      {/* Main Area — sin header duplicado */}
+      {/* Main Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <main style={{ flex: 1 }}>
           {children}
@@ -104,13 +169,33 @@ const AdminLayout: React.FC<{ children: React.ReactNode; currentTab: string; set
 
 const AdminDashboardContainer: React.FC = () => {
   const [tab, setTab] = useState('dashboard');
+  const [businessName, setBusinessName] = useState(() => localStorage.getItem('stockflow_business_name') || 'StockFlow Connect');
+
+  useEffect(() => {
+    api.get('/settings/business')
+      .then(res => {
+        if (res.data?.settings?.name) {
+          setBusinessName(res.data.settings.name);
+          localStorage.setItem('stockflow_business_name', res.data.settings.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <AdminLayout currentTab={tab} setTab={setTab}>
+    <AdminLayout 
+      currentTab={tab} 
+      setTab={setTab} 
+      businessName={businessName} 
+      setBusinessName={setBusinessName}
+    >
       {tab === 'dashboard' && <Dashboard />}
       {tab === 'inventory' && <Inventory />}
       {tab === 'pos' && <POS />}
+      {tab === 'sales-history' && <SalesHistory />}
+      {tab === 'customers' && <Customers />}
       {tab === 'suppliers' && <Suppliers />}
+      {tab === 'settings' && <Settings onBusinessUpdated={setBusinessName} />}
     </AdminLayout>
   );
 };
@@ -124,6 +209,7 @@ export const App: React.FC = () => {
         <Route path="/registro" element={<Register />} />
         <Route path="/dashboard" element={<AdminDashboardContainer />} />
         <Route path="/catalogo" element={<Catalog />} />
+        <Route path="/mis-pedidos" element={<ClientOrders />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

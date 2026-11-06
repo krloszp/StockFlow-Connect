@@ -4,6 +4,8 @@ title StockFlow Connect
 echo ===============================================================
 echo      INICIANDO PLATAFORMA STOCKFLOW CONNECT (pnpm)
 echo ===============================================================
+echo  Base de datos: SQLite integrada (se activa automaticamente)
+echo ===============================================================
 echo.
 
 cd /d "%~dp0"

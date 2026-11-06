@@ -6,6 +6,8 @@ import suppliersRoutes from './routes/suppliers.routes.js';
 import productsRoutes from './routes/products.routes.js';
 import salesRoutes from './routes/sales.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
+import customersRoutes from './routes/customers.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 dotenv.config();
@@ -33,6 +35,8 @@ app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Middleware centralizado de errores
 app.use(errorHandler);

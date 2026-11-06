@@ -16,6 +16,7 @@ export interface UpdateProductDTO {
   description?: string;
   costPrice?: number;
   sellingPrice?: number;
+  stock?: number;
   minStock?: number;
   image?: string;
   supplierId?: string;
@@ -147,6 +148,12 @@ export class ProductsService {
   }
 
   async updateProduct(id: string, data: UpdateProductDTO) {
+    if (data.stock !== undefined && data.stock !== null && Number(data.stock) < 0) {
+      const error: any = new Error('El stock no puede ser un número negativo.');
+      error.statusCode = 400;
+      throw error;
+    }
+
     try {
       return await prisma.product.update({
         where: { id },
@@ -155,12 +162,14 @@ export class ProductsService {
           description: data.description !== undefined ? data.description.trim() : undefined,
           costPrice: data.costPrice !== undefined ? Number(data.costPrice) : undefined,
           sellingPrice: data.sellingPrice !== undefined ? Number(data.sellingPrice) : undefined,
+          stock: data.stock !== undefined && data.stock !== null ? Number(data.stock) : undefined,
           minStock: data.minStock !== undefined ? Number(data.minStock) : undefined,
           supplierId: data.supplierId || undefined
         },
         include: { supplier: true }
       });
-    } catch (err) {
+    } catch (err: any) {
+      if (err.statusCode) throw err;
       const idx = mockProducts.findIndex(p => p.id === id);
       if (idx !== -1) {
         mockProducts[idx] = { ...mockProducts[idx], ...data };

@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { registerController, loginController, getProfileController } from '../controllers/auth.controller.js';
+import { 
+  registerController, 
+  loginController, 
+  getProfileController,
+  updateProfileController 
+} from '../controllers/auth.controller.js';
 import { authenticateJWT } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -14,9 +19,10 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Rutas de autenticación
+// Rutas de autenticación y perfil
 router.post('/register', registerController);
 router.post('/login', loginLimiter, loginController);
 router.get('/me', authenticateJWT, getProfileController);
+router.put('/profile', authenticateJWT, updateProfileController);
 
 export default router;

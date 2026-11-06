@@ -129,6 +129,28 @@ export class OrdersService {
       data: { status }
     });
   }
+  /**
+   * Consultar Pedidos por Teléfono (Público — Vista Cliente)
+   */
+  async getOrdersByPhone(phone: string) {
+    if (!phone || phone.trim() === '') {
+      const error: any = new Error('Ingresa tu número de teléfono para consultar tus pedidos.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const orders = await prisma.order.findMany({
+      where: { customerPhone: { contains: phone.trim() } },
+      include: {
+        items: {
+          include: { product: { select: { id: true, name: true, description: true } } }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return { orders };
+  }
 }
 
 export const ordersService = new OrdersService();

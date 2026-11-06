@@ -34,3 +34,18 @@ export const getProfileController = async (req: AuthenticatedRequest, res: Respo
     next(error);
   }
 };
+
+export const updateProfileController = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ message: 'Usuario no autenticado.' });
+      return;
+    }
+
+    const result = await authService.updateProfile(userId, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};

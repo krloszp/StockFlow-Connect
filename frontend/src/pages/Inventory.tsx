@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, ArrowUpRight, DollarSign } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { api } from '../services/api';
 
 export const Inventory: React.FC = () => {
@@ -87,14 +87,19 @@ export const Inventory: React.FC = () => {
       return;
     }
 
+    if (stock === '' || Number(stock) < 0) {
+      setErrorMsg('El stock debe ser un número mayor o igual a 0.');
+      return;
+    }
+
     try {
       const payload = {
-        name,
-        description,
+        name: name.trim(),
+        description: description.trim(),
         costPrice: Number(costPrice),
         sellingPrice: Number(sellingPrice),
         stock: Number(stock),
-        minStock: Number(minStock),
+        minStock: minStock === '' ? 5 : Number(minStock),
         supplierId
       };
 
@@ -295,12 +300,12 @@ export const Inventory: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Stock Inicial *</label>
-                  <input type="number" className="form-input" placeholder="50" value={stock} onChange={(e) => setStock(e.target.value === '' ? '' : Number(e.target.value))} required />
+                  <label className="form-label">{editingId ? 'Stock Actual *' : 'Stock Inicial *'}</label>
+                  <input type="number" min="0" className="form-input" placeholder="0" value={stock} onChange={(e) => setStock(e.target.value === '' ? '' : Number(e.target.value))} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Stock Mínimo (Alerta)</label>
-                  <input type="number" className="form-input" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value === '' ? '' : Number(e.target.value))} />
+                  <input type="number" min="0" className="form-input" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value === '' ? '' : Number(e.target.value))} />
                 </div>
               </div>
 

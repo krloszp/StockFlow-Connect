@@ -21,7 +21,7 @@ export const getSuppliersController = async (req: Request, res: Response, next: 
 
 export const updateSupplierController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const supplier = await suppliersService.updateSupplier(id, req.body);
     res.status(200).json({ message: 'Proveedor actualizado exitosamente.', supplier });
   } catch (error) {
@@ -31,7 +31,7 @@ export const updateSupplierController = async (req: Request, res: Response, next
 
 export const deleteSupplierController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const result = await suppliersService.deleteSupplier(id);
     res.status(200).json(result);
   } catch (error) {

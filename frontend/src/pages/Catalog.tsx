@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingBag, ShoppingCart, Send, CheckCircle2, Phone, User, Search } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Send, CheckCircle2, Search, ClipboardList } from 'lucide-react';
 import { api } from '../services/api';
 
 export const Catalog: React.FC = () => {
@@ -85,10 +85,19 @@ export const Catalog: React.FC = () => {
           </div>
         </div>
 
-        <button onClick={() => setShowCheckoutModal(true)} className="btn btn-primary" disabled={cart.length === 0}>
-          <ShoppingCart size={18} />
-          <span>Carrito ({cart.length}) — ${totalAmount.toLocaleString()}</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <a
+            href="/mis-pedidos"
+            className="btn btn-secondary"
+            style={{ gap: '0.5rem', textDecoration: 'none', fontSize: '0.9rem' }}
+          >
+            <ClipboardList size={16} /> Mis Pedidos
+          </a>
+          <button onClick={() => setShowCheckoutModal(true)} className="btn btn-primary" disabled={cart.length === 0}>
+            <ShoppingCart size={18} />
+            <span>Carrito ({cart.length}) — ${totalAmount.toLocaleString()}</span>
+          </button>
+        </div>
       </header>
 
       {/* Hero / Búsqueda */}

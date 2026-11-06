@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PyMaestro — Guía Interactiva de Python</title>
+  <meta name="description" content="Guía interactiva completa de Python. Aprende desde cero hasta nivel profesional construyendo un proyecto real en tres fases: Principiante, Intermedio y Profesional." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR NAVIGATION
+══════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <span class="logo-icon">🐍</span>
+      <span class="logo-text">PyMaestro</span>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Cerrar menú">✕</button>
+  </div>
+
+  <div class="progress-overview">
+    <div class="progress-label">
+      <span>Progreso Total</span>
+      <span id="totalProgressPct">0%</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="totalProgressBar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <!-- Inicio -->
+    <div class="nav-section" data-section="home">
+      <button class="nav-item active" data-page="home" id="nav-home">
+        <span class="nav-icon">🏠</span>
+        <span>Inicio</span>
+      </button>
+    </div>
+
+    <!-- Fase 1: Principiante -->
+    <div class="nav-phase">
+      <div class="phase-label phase-1-label">
+        <span class="phase-dot"></span>
+        FASE 1 · PRINCIPIANTE
+      </div>
+      <button class="nav-item" data-page="p1-intro" id="nav-p1-intro">
+        <span class="nav-icon">📚</span><span>Introducción</span>
+        <span class="nav-check" id="chk-p1-intro">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-variables" id="nav-p1-variables">
+        <span class="nav-icon">📦</span><span>Variables y Tipos</span>
+        <span class="nav-check" id="chk-p1-variables">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-control" id="nav-p1-control">
+        <span class="nav-icon">🔀</span><span>Control de Flujo</span>
+        <span class="nav-check" id="chk-p1-control">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-funciones" id="nav-p1-funciones">
+        <span class="nav-icon">⚙️</span><span>Funciones</span>
+        <span class="nav-check" id="chk-p1-funciones">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-listas" id="nav-p1-listas">
+        <span class="nav-icon">📋</span><span>Listas y Colecciones</span>
+        <span class="nav-check" id="chk-p1-listas">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-proyecto" id="nav-p1-proyecto">
+        <span class="nav-icon">🚀</span><span>Proyecto: Gestor CLI</span>
+        <span class="nav-check" id="chk-p1-proyecto">○</span>
+      </button>
+      <button class="nav-item" data-page="p1-quiz" id="nav-p1-quiz">
+        <span class="nav-icon">🎯</span><span>Quiz Fase 1</span>
+        <span class="nav-check" id="chk-p1-quiz">○</span>
+      </button>
+    </div>
+
+    <!-- Fase 2: Intermedio -->
+    <div class="nav-phase">
+      <div class="phase-label phase-2-label">
+        <span class="phase-dot"></span>
+        FASE 2 · INTERMEDIO
+      </div>
+      <button class="nav-item" data-page="p2-poo" id="nav-p2-poo">
+        <span class="nav-icon">🏗️</span><span>POO</span>
+        <span class="nav-check" id="chk-p2-poo">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-modulos" id="nav-p2-modulos">
+        <span class="nav-icon">📦</span><span>Módulos y Paquetes</span>
+        <span class="nav-check" id="chk-p2-modulos">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-archivos" id="nav-p2-archivos">
+        <span class="nav-icon">📁</span><span>Archivos y JSON</span>
+        <span class="nav-check" id="chk-p2-archivos">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-errores" id="nav-p2-errores">
+        <span class="nav-icon">🛡️</span><span>Manejo de Errores</span>
+        <span class="nav-check" id="chk-p2-errores">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-decoradores" id="nav-p2-decoradores">
+        <span class="nav-icon">✨</span><span>Decoradores</span>
+        <span class="nav-check" id="chk-p2-decoradores">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-proyecto" id="nav-p2-proyecto">
+        <span class="nav-icon">🚀</span><span>Proyecto: API REST</span>
+        <span class="nav-check" id="chk-p2-proyecto">○</span>
+      </button>
+      <button class="nav-item" data-page="p2-quiz" id="nav-p2-quiz">
+        <span class="nav-icon">🎯</span><span>Quiz Fase 2</span>
+        <span class="nav-check" id="chk-p2-quiz">○</span>
+      </button>
+    </div>
+
+    <!-- Fase 3: Profesional -->
+    <div class="nav-phase">
+      <div class="phase-label phase-3-label">
+        <span class="phase-dot"></span>
+        FASE 3 · PROFESIONAL
+      </div>
+      <button class="nav-item" data-page="p3-async" id="nav-p3-async">
+        <span class="nav-icon">⚡</span><span>Async / Await</span>
+        <span class="nav-check" id="chk-p3-async">○</span>
+      </button>
+      <button class="nav-item" data-page="p3-testing" id="nav-p3-testing">
+        <span class="nav-icon">🧪</span><span>Testing</span>
+        <span class="nav-check" id="chk-p3-testing">○</span>
+      </button>
+      <button class="nav-item" data-page="p3-patrones" id="nav-p3-patrones">
+        <span class="nav-icon">🏛️</span><span>Patrones de Diseño</span>
+        <span class="nav-check" id="chk-p3-patrones">○</span>
+      </button>
+      <button class="nav-item" data-page="p3-performance" id="nav-p3-performance">
+        <span class="nav-icon">🔥</span><span>Performance</span>
+        <span class="nav-check" id="chk-p3-performance">○</span>
+      </button>
+      <button class="nav-item" data-page="p3-proyecto" id="nav-p3-proyecto">
+        <span class="nav-icon">🚀</span><span>Proyecto: App Completa</span>
+        <span class="nav-check" id="chk-p3-proyecto">○</span>
+      </button>
+      <button class="nav-item" data-page="p3-quiz" id="nav-p3-quiz">
+        <span class="nav-icon">🎯</span><span>Quiz Final</span>
+        <span class="nav-check" id="chk-p3-quiz">○</span>
+      </button>
+    </div>
+
+    <!-- Recursos -->
+    <div class="nav-phase">
+      <div class="phase-label" style="color:#94a3b8">
+        <span class="phase-dot" style="background:#94a3b8"></span>
+        RECURSOS
+      </div>
+      <button class="nav-item" data-page="recursos-cheatsheet">
+        <span class="nav-icon">📄</span><span>Cheat Sheet</span>
+      </button>
+      <button class="nav-item" data-page="recursos-trucos">
+        <span class="nav-icon">💡</span><span>Trucos Pro</span>
+      </button>
+    </div>
+  </nav>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════ -->
+<main class="main-content" id="mainContent">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <button class="menu-btn" id="menuBtn" title="Abrir menú">☰</button>
+    <div class="topbar-breadcrumb" id="breadcrumb">Inicio</div>
+    <div class="topbar-actions">
+      <button class="btn-icon" id="themeToggle" title="Cambiar tema">🌙</button>
+    </div>
+  </header>
+
+  <!-- PAGE CONTAINER -->
+  <div class="page-container" id="pageContainer">
+    <!-- Pages rendered by JS -->
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <footer class="bottom-nav" id="bottomNav">
+    <button class="btn-nav" id="prevBtn">← Anterior</button>
+    <div class="page-dots" id="pageDots"></div>
+    <button class="btn-nav btn-nav-next" id="nextBtn">Siguiente →</button>
+  </footer>
+</main>
+
+<!-- ══════════════════════════════════════════
+     CODE MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="codeModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="modalTitle">Código Python</span>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre class="code-block modal-code" id="modalCode"></pre>
+      <div class="modal-output" id="modalOutput" style="display:none">
+        <div class="output-label">▶ Output:</div>
+        <pre id="outputContent"></pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-run" id="runCode">▶ Simular Ejecución</button>
+      <button class="btn-copy" id="copyCode">📋 Copiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

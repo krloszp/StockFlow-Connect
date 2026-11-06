@@ -34,7 +34,7 @@ export const getStockAlertsController = async (req: Request, res: Response, next
 
 export const updateProductController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const product = await productsService.updateProduct(id, req.body);
     res.status(200).json({ message: 'Producto actualizado exitosamente.', product });
   } catch (error) {
@@ -44,7 +44,7 @@ export const updateProductController = async (req: Request, res: Response, next:
 
 export const increaseStockController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const { quantity } = req.body;
     const product = await productsService.increaseStock(id, quantity);
     res.status(200).json({ message: 'Stock actualizado correctamente.', product });
@@ -55,7 +55,7 @@ export const increaseStockController = async (req: Request, res: Response, next:
 
 export const deleteProductController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const result = await productsService.deleteProduct(id);
     res.status(200).json(result);
   } catch (error) {
