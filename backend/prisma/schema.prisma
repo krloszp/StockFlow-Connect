@@ -46,23 +46,89 @@ model Supplier {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   products    Product[]
+  purchases   Purchase[]
 }
 
 model Product {
   id           String      @id @default(uuid())
   name         String
+  category     String      @default("General")
   description  String?
   costPrice    Float
   sellingPrice Float
   stock        Int         @default(0)
   minStock     Int         @default(5)
   image        String?
+  expirationDate DateTime?
   supplierId   String
   supplier     Supplier    @relation(fields: [supplierId], references: [id])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   saleItems    SaleItem[]
   orderItems   OrderItem[]
+  purchaseItems PurchaseItem[]
+  movements    InventoryMovement[]
+
+  @@index([expirationDate])
+}
+
+model Purchase {
+  id            String          @id @default(uuid())
+  totalAmount   Float
+  supplierId    String?
+  supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplierName  String
+  paymentMethod String          @default("EFECTIVO")
+  amountPaid    Float           @default(0)
+  invoiceNumber String?
+  purchaseDate  DateTime?
+  note          String?
+  createdAt     DateTime        @default(now())
+  items         PurchaseItem[]
+  payments      PurchasePayment[]
+
+  @@index([createdAt])
+  @@index([purchaseDate])
+}
+
+model PurchaseItem {
+  id          String   @id @default(uuid())
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName String
+  quantity    Int
+  unitCost    Float
+  sellingPriceAtPurchase Float @default(0)
+  subtotal    Float
+  expirationDate DateTime?
+
+  @@index([purchaseId])
+}
+
+model PurchasePayment {
+  id            String   @id @default(uuid())
+  purchaseId    String
+  purchase      Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentMethod String
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([purchaseId])
+}
+
+model InventoryMovement {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type      String
+  quantity  Int
+  unitCost  Float
+  note      String?
+  createdAt DateTime @default(now())
+  @@index([productId, createdAt])
 }
 
 model Customer {
@@ -70,8 +136,11 @@ model Customer {
   cedula      String            @unique
   name        String
   phone       String?
+  whatsappOptIn Boolean @default(false)
+  email       String?
   address     String?
   balance     Float             @default(0)
+  creditLimit Float             @default(0)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   sales       Sale[]
@@ -84,8 +153,10 @@ model CustomerPayment {
   customerId  String
   customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   amount      Float
+  paymentMethod String
   note        String?
   createdAt   DateTime  @default(now())
+  allocations PaymentAllocation[]
 }
 
 model Sale {
@@ -103,6 +174,20 @@ model Sale {
   customerNote    String?
   createdAt       DateTime    @default(now())
   items           SaleItem[]
+  allocations     PaymentAllocation[]
+}
+
+model PaymentAllocation {
+  id        String          @id @default(uuid())
+  paymentId String
+  payment   CustomerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  saleId    String
+  sale      Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount    Float
+  createdAt DateTime        @default(now())
+
+  @@index([saleId])
+  @@index([paymentId])
 }
 
 model SaleItem {
@@ -113,6 +198,7 @@ model SaleItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
   unitPrice Float
+  costPriceAtSale Float @default(0)
   subtotal  Float
 }
 
@@ -125,10 +211,14 @@ model Order {
   customerPhone   String
   totalAmount     Float
   status          String      @default("PENDIENTE")
+  paymentMethod   String?
+  source          String      @default("WEB")
+  whatsappRequestCode String? @unique
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   items           OrderItem[]
 }
+
 
 model OrderItem {
   id        String   @id @default(uuid())
@@ -139,4 +229,11 @@ model OrderItem {
   quantity  Int
   unitPrice Float
   subtotal  Float
+}
+
+model WhatsAppSession {
+  phone       String   @id
+  step        String
+  pendingName String?
+  updatedAt   DateTime @updatedAt
 }

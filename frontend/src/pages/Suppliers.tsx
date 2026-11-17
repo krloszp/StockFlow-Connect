@@ -87,7 +87,8 @@ export const Suppliers: React.FC = () => {
 
   const filteredSuppliers = suppliers.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
-    (s.contactName && s.contactName.toLowerCase().includes(search.toLowerCase()))
+    (s.contactName && s.contactName.toLowerCase().includes(search.toLowerCase())) ||
+    (s.phone && s.phone.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -99,13 +100,10 @@ export const Suppliers: React.FC = () => {
             <Users color="var(--primary)" /> Gestión de <span className="gradient-text">Proveedores</span>
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Registra y administra las marcas y proveedores vinculados a tus productos
+            Administra proveedores y productos asociados. Registra pedidos y compras desde Inventario → +Stock.
           </p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn btn-primary">
-          <Plus size={18} />
-          <span>Nuevo Proveedor</span>
-        </button>
+        <button onClick={() => handleOpenModal()} className="btn btn-primary"><Plus size={18} /><span>Nuevo Proveedor</span></button>
       </div>
 
       {/* Buscador */}

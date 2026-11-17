@@ -12,7 +12,7 @@ export const createSaleController = async (req: Request, res: Response, next: Ne
 
 export const getSalesHistoryController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const sales = await salesService.getSalesHistory();
+    const sales = await salesService.getSalesHistory(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
     res.status(200).json({ sales });
   } catch (error) {
     next(error);
@@ -21,7 +21,7 @@ export const getSalesHistoryController = async (req: Request, res: Response, nex
 
 export const getProfitMetricsController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const metrics = await salesService.getProfitMetrics();
+    const metrics = await salesService.getProfitMetrics(req.query.month as string | undefined, req.query.startDate as string | undefined, req.query.endDate as string | undefined);
     res.status(200).json(metrics);
   } catch (error) {
     next(error);

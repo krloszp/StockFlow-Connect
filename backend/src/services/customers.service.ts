@@ -4,12 +4,16 @@ export interface CustomerDTO {
   cedula: string;
   name: string;
   phone?: string;
+  whatsappOptIn?: boolean;
+  email?: string;
   address?: string;
   balance?: number;
+  creditLimit?: number;
 }
 
 export interface RegisterPaymentDTO {
   amount: number;
+  paymentMethod: string;
   note?: string;
 }
 
@@ -33,6 +37,11 @@ export class CustomersService {
       error.statusCode = 400;
       throw error;
     }
+    if (data.creditLimit !== undefined && (!Number.isFinite(Number(data.creditLimit)) || Number(data.creditLimit) < 0)) {
+      const error: any = new Error('El cupo de crédito debe ser un valor válido igual o mayor a cero.');
+      error.statusCode = 400;
+      throw error;
+    }
 
     // Verificar si ya existe cliente con esta cédula
     const existing = await prisma.customer.findUnique({
@@ -50,8 +59,11 @@ export class CustomersService {
         cedula,
         name,
         phone: data.phone?.trim() || null,
+        whatsappOptIn: data.whatsappOptIn === true,
+        email: data.email?.trim() || null,
         address: data.address?.trim() || null,
-        balance: data.balance ? Number(data.balance) : 0
+        balance: data.balance ? Number(data.balance) : 0,
+        creditLimit: data.creditLimit !== undefined ? Number(data.creditLimit) : 0
       }
     });
   }
@@ -82,7 +94,7 @@ export class CustomersService {
         },
         payments: {
           orderBy: { createdAt: 'desc' },
-          take: 5
+          include: { allocations: { include: { sale: true } } }
         }
       }
     });
@@ -118,14 +130,17 @@ export class CustomersService {
         cedula: customer.cedula,
         name: customer.name,
         phone: customer.phone,
+        email: customer.email,
         address: customer.address,
         balance: customer.balance || 0, // Saldo por pagar
+        creditLimit: customer.creditLimit || 0,
         createdAt: customer.createdAt,
         updatedAt: customer.updatedAt,
         pendingOrdersCount: pendingOrders.length,
         pendingOrdersTotal,
         pendingOrders,
         salesCount: customer.sales.length,
+        salesActivity: customer.sales.map(sale => ({ createdAt: sale.createdAt })),
         recentPayments: customer.payments
       };
     });
@@ -142,7 +157,8 @@ export class CustomersService {
           include: {
             items: {
               include: { product: true }
-            }
+            },
+            allocations: { include: { payment: true } }
           },
           orderBy: { createdAt: 'desc' }
         },
@@ -155,7 +171,8 @@ export class CustomersService {
           orderBy: { createdAt: 'desc' }
         },
         payments: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
+          include: { allocations: { include: { sale: true } } }
         }
       }
     });
@@ -232,6 +249,8 @@ export class CustomersService {
       cedula: c.cedula,
       name: c.name,
       phone: c.phone,
+      email: c.email,
+      whatsappOptIn: c.whatsappOptIn,
       address: c.address,
       balance: c.balance,
       pendingOrdersCount: c.orders.length,
@@ -258,6 +277,11 @@ export class CustomersService {
       error.statusCode = 400;
       throw error;
     }
+    if (data.creditLimit !== undefined && (!Number.isFinite(Number(data.creditLimit)) || Number(data.creditLimit) < 0)) {
+      const error: any = new Error('El cupo de crédito debe ser un valor válido igual o mayor a cero.');
+      error.statusCode = 400;
+      throw error;
+    }
 
     // Verificar si otra persona tiene ya esa cédula
     const existing = await prisma.customer.findFirst({
@@ -279,8 +303,11 @@ export class CustomersService {
         cedula,
         name,
         phone: data.phone !== undefined ? (data.phone ? data.phone.trim() : null) : undefined,
+        whatsappOptIn: data.whatsappOptIn !== undefined ? data.whatsappOptIn : undefined,
+        email: data.email !== undefined ? (data.email ? data.email.trim() : null) : undefined,
         address: data.address !== undefined ? (data.address ? data.address.trim() : null) : undefined,
-        balance: data.balance !== undefined ? Number(data.balance) : undefined
+        balance: data.balance !== undefined ? Number(data.balance) : undefined,
+        creditLimit: data.creditLimit !== undefined ? Number(data.creditLimit) : undefined
       }
     });
   }
@@ -310,6 +337,11 @@ export class CustomersService {
       error.statusCode = 400;
       throw error;
     }
+    if (!['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'OTRO'].includes(data.paymentMethod)) {
+      const error: any = new Error('Selecciona un medio de pago válido.');
+      error.statusCode = 400;
+      throw error;
+    }
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) {
@@ -320,15 +352,32 @@ export class CustomersService {
 
     return await prisma.$transaction(async (tx) => {
       // 1. Crear registro de pago
+      let remainingPayment = amount;
+      const creditSales = await tx.sale.findMany({
+        where: { customerId, paymentMethod: 'CREDITO', pendingAmount: { gt: 0 } },
+        orderBy: { createdAt: 'asc' }
+      });
+      const allocations: { saleId: string; amount: number }[] = [];
+      for (const sale of creditSales) {
+        if (remainingPayment <= 0) break;
+        const allocated = Math.min(sale.pendingAmount || 0, remainingPayment);
+        if (allocated > 0) {
+          await tx.sale.update({ where: { id: sale.id }, data: { pendingAmount: (sale.pendingAmount || 0) - allocated } });
+          allocations.push({ saleId: sale.id, amount: allocated });
+          remainingPayment -= allocated;
+        }
+      }
       const payment = await tx.customerPayment.create({
         data: {
           customerId,
           amount,
-          note: data.note?.trim() || null
+          paymentMethod: data.paymentMethod,
+          note: data.note?.trim() || null,
+          allocations: { create: allocations }
         }
       });
 
-      // 2. Reducir saldo por pagar (no menor a 0)
+      // El saldo general también puede incluir deuda inicial u otros cargos.
       const newBalance = Math.max(0, customer.balance - amount);
       const updatedCustomer = await tx.customer.update({
         where: { id: customerId },
@@ -337,6 +386,7 @@ export class CustomersService {
 
       return {
         payment,
+        allocations,
         customer: updatedCustomer,
         previousBalance: customer.balance,
         newBalance

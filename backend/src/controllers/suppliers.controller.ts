@@ -1,5 +1,28 @@
 import { Request, Response, NextFunction } from 'express';
 import { suppliersService } from '../services/suppliers.service.js';
+import { purchasesService } from '../services/purchases.service.js';
+
+export const createPurchaseController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const purchase = await purchasesService.createPurchase(req.body);
+    res.status(201).json({ message: 'Compra registrada y agregada al inventario.', purchase });
+  } catch (error) { next(error); }
+};
+
+export const getPurchasesController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const purchases = await purchasesService.getPurchases(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
+    res.status(200).json({ purchases });
+  } catch (error) { next(error); }
+};
+
+export const addPurchasePaymentController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const purchase = await purchasesService.addPayment(id, Number(req.body.amount), String(req.body.paymentMethod || 'EFECTIVO'), req.body.note);
+    res.status(201).json({ message: 'Abono de compra registrado.', purchase });
+  } catch (error) { next(error); }
+};
 
 export const createSupplierController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

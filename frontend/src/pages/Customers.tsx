@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Users, UserPlus, Search, Edit2, Trash2, Phone, MapPin, 
+  Users, UserPlus, Search, Edit2, Trash2, Phone, MapPin, Send,
   Clock, DollarSign, CheckCircle2, 
-  FileText, X, Wallet
+  FileText, X, Wallet, Mail
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -11,19 +11,28 @@ interface Customer {
   cedula: string;
   name: string;
   phone: string | null;
+  email: string | null;
   address: string | null;
   balance: number;
+  creditLimit: number;
   pendingOrdersCount: number;
   pendingOrdersTotal: number;
   salesCount: number;
+  salesActivity?: { createdAt: string }[];
+  recentPayments?: { createdAt: string; amount: number; paymentMethod?: string; note?: string | null }[];
   createdAt: string;
 }
 
-export const Customers: React.FC = () => {
+export const Customers: React.FC<{ initialFilter?: 'all' | 'with-debt' }> = ({ initialFilter = 'all' }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [businessName, setBusinessName] = useState('la tienda');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'with-debt' | 'with-orders'>('all');
+  const today = new Date();
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const [month, setMonth] = useState(currentMonth);
+  const [filterType, setFilterType] = useState<'all' | 'with-debt' | 'with-orders'>(initialFilter);
+  useEffect(() => { setFilterType(initialFilter); }, [initialFilter]);
 
   // Modal Crear / Editar
   const [showModal, setShowModal] = useState(false);
@@ -31,8 +40,10 @@ export const Customers: React.FC = () => {
   const [cedula, setCedula] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [initialBalance, setInitialBalance] = useState<number | ''>('');
+  const [creditLimit, setCreditLimit] = useState<number | ''>('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,6 +56,7 @@ export const Customers: React.FC = () => {
   const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentError, setPaymentError] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
 
@@ -64,6 +76,18 @@ export const Customers: React.FC = () => {
     fetchCustomers();
   }, []);
 
+  useEffect(() => { api.get('/settings/business').then(res => setBusinessName(res.data.settings?.name || 'la tienda')).catch(() => {}); }, []);
+
+  const whatsappHref = (customer: { name: string; phone?: string | null }, message = '') => {
+    if (!customer.phone) return undefined;
+    let phoneDigits = customer.phone.replace(/\D/g, '');
+    if (phoneDigits.length === 10) phoneDigits = `57${phoneDigits}`;
+    return `https://wa.me/${phoneDigits}${message ? `?text=${encodeURIComponent(message)}` : ''}`;
+  };
+
+  const welcomeMessage = (customer: { name: string }) => `Hola ${customer.name}, gracias por preferir ${businessName}. Te damos la bienvenida. Guarda este número para que podamos atenderte por WhatsApp cuando lo necesites. ¡Estamos para ayudarte!`;
+  const debtMessage = (customer: Customer) => `Hola ${customer.name}, te saludamos de ${businessName}. Te recordamos cordialmente que tienes un saldo pendiente de $${customer.balance.toLocaleString('es-CO')}. Cuando realices el abono, con gusto actualizaremos tu estado de cuenta. Si ya pagaste, puedes ignorar este mensaje. ¡Gracias!`;
+
   const handleOpenModal = (customer?: Customer) => {
     setErrorMsg('');
     if (customer) {
@@ -71,15 +95,19 @@ export const Customers: React.FC = () => {
       setCedula(customer.cedula);
       setName(customer.name);
       setPhone(customer.phone || '');
+      setEmail(customer.email || '');
       setAddress(customer.address || '');
       setInitialBalance('');
+      setCreditLimit(customer.creditLimit || 0);
     } else {
       setEditingId(null);
       setCedula('');
       setName('');
       setPhone('');
+      setEmail('');
       setAddress('');
       setInitialBalance('');
+      setCreditLimit(0);
     }
     setShowModal(true);
   };
@@ -102,7 +130,9 @@ export const Customers: React.FC = () => {
         cedula: cedula.trim(),
         name: name.trim(),
         phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
         address: address.trim() || undefined
+        ,creditLimit: Number(creditLimit || 0)
       };
 
       if (!editingId && initialBalance !== '' && Number(initialBalance) > 0) {
@@ -161,6 +191,7 @@ export const Customers: React.FC = () => {
     setPaymentCustomer(customer);
     setPaymentAmount(customer.balance > 0 ? customer.balance : '');
     setPaymentNote('');
+    setPaymentMethod('EFECTIVO');
     setPaymentError('');
     setShowPaymentModal(true);
   };
@@ -180,6 +211,7 @@ export const Customers: React.FC = () => {
       setPaymentError('');
       await api.post(`/customers/${paymentCustomer.id}/payments`, {
         amount,
+        paymentMethod,
         note: paymentNote.trim() || undefined
       });
 
@@ -204,10 +236,13 @@ export const Customers: React.FC = () => {
 
   // Filtrado
   const filteredCustomers = customers.filter(c => {
+    const activityThisMonth = (c.salesActivity || []).some((s: any) => s.createdAt?.slice(0, 7) === month) || (c.recentPayments || []).some((p: any) => p.createdAt?.slice(0, 7) === month) || c.createdAt?.slice(0, 7) === month;
+    if (!activityThisMonth) return false;
     const matchesSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.cedula.toLowerCase().includes(search.toLowerCase()) ||
-      (c.phone && c.phone.includes(search));
+      (c.phone && c.phone.includes(search)) ||
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase()));
 
     if (!matchesSearch) return false;
 
@@ -278,6 +313,7 @@ export const Customers: React.FC = () => {
 
       {/* ── Buscador y Filtros ── */}
       <div className="glass-panel" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>Mes del historial <input aria-label="Mes del historial de clientes" type="month" max={currentMonth} className="form-input" style={{ width: 'auto' }} value={month} onChange={e => setMonth(e.target.value)} /></label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '260px' }}>
           <Search size={18} color="var(--text-dim)" />
           <input
@@ -390,17 +426,24 @@ export const Customers: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
                           <Phone size={13} color="var(--accent)" />
                           <a
-                            href={`https://wa.me/57${c.phone.replace(/\D/g, '')}`}
+                            href={whatsappHref(c, welcomeMessage(c))}
                             target="_blank"
                             rel="noreferrer"
                             style={{ color: 'var(--text-main)', textDecoration: 'none' }}
-                            title="Chatear por WhatsApp"
+                            title="Enviar bienvenida por WhatsApp"
                           >
                             {c.phone}
                           </a>
                         </div>
                       ) : (
                         <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>Sin teléfono</span>
+                      )}
+
+                      {c.email && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem', fontSize: '0.78rem' }}>
+                          <Mail size={13} color="var(--accent)" />
+                          <a href={`mailto:${c.email}`} style={{ color: 'var(--text-main)', textDecoration: 'none' }}>{c.email}</a>
+                        </div>
                       )}
 
                       {c.address ? (
@@ -460,6 +503,7 @@ export const Customers: React.FC = () => {
                           >
                             <DollarSign size={11} /> Abonar / Pagar
                           </button>
+                          {c.phone && <a className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: 'var(--accent)' }} target="_blank" rel="noreferrer" href={whatsappHref(c, debtMessage(c))}>Enviar recordatorio por WhatsApp</a>}
                         </div>
                       ) : (
                         <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -479,6 +523,18 @@ export const Customers: React.FC = () => {
                         >
                           <FileText size={14} />
                         </button>
+                        <a
+                          href={whatsappHref(c, welcomeMessage(c)) || '#'}
+                          onClick={e => { if (!whatsappHref(c, welcomeMessage(c))) e.preventDefault(); }}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary"
+                          style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem', opacity: c.phone ? 1 : 0.45, pointerEvents: c.phone ? 'auto' : 'none' }}
+                          title={c.phone ? 'Enviar bienvenida por WhatsApp' : 'Agrega un teléfono al cliente para enviarle un mensaje'}
+                          aria-label={`Enviar bienvenida a ${c.name} por WhatsApp`}
+                        >
+                          <Send size={14} />
+                        </a>
                         <button
                           onClick={() => handleOpenModal(c)}
                           className="btn btn-secondary"
@@ -576,6 +632,17 @@ export const Customers: React.FC = () => {
                 />
               </div>
 
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Correo electrónico (Opcional)</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="cliente@ejemplo.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+
               {/* Dirección */}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Dirección de Residencia / Entrega (Opcional)</label>
@@ -603,6 +670,12 @@ export const Customers: React.FC = () => {
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Solo si tiene una deuda pendiente anterior</span>
                 </div>
               )}
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Cupo máximo de crédito ($)</label>
+                <input type="number" min="0" className="form-input" value={creditLimit} onChange={e => setCreditLimit(e.target.value === '' ? '' : Number(e.target.value))} />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Administrado por el responsable. Usa 0 para no autorizar crédito.</span>
+              </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
@@ -635,6 +708,7 @@ export const Customers: React.FC = () => {
                 <h2 style={{ fontSize: '1.4rem', margin: '0.2rem 0' }}>{selectedCustomer.name}</h2>
                 <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem', flexWrap: 'wrap' }}>
                   {selectedCustomer.phone && <span>📞 {selectedCustomer.phone}</span>}
+                  {selectedCustomer.email && <span>✉️ {selectedCustomer.email}</span>}
                   {selectedCustomer.address && <span>📍 {selectedCustomer.address}</span>}
                 </div>
               </div>
@@ -662,6 +736,12 @@ export const Customers: React.FC = () => {
               </div>
 
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--bg-card-border)' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cupo de crédito disponible</span>
+                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: (selectedCustomer.creditLimit - selectedCustomer.balance) > 0 ? 'var(--accent)' : 'var(--danger)', marginTop: '0.2rem' }}>${Math.max(0, selectedCustomer.creditLimit - selectedCustomer.balance).toLocaleString('es-CO')}</div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Límite: ${(selectedCustomer.creditLimit || 0).toLocaleString('es-CO')}</span>
+              </div>
+
+              <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--bg-card-border)' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pedidos Pendientes</span>
                 <div style={{ fontSize: '1.4rem', fontWeight: 700, color: (selectedCustomer.pendingOrdersCount || 0) > 0 ? 'var(--warning)' : 'var(--text-main)', marginTop: '0.2rem' }}>
                   {selectedCustomer.pendingOrdersCount || 0}
@@ -678,6 +758,29 @@ export const Customers: React.FC = () => {
                 </div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Transacciones realizadas</span>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '1.75rem' }}>
+              <h3 style={{ fontSize: '1.05rem', marginBottom: '.75rem' }}>Créditos y compras registradas</h3>
+              {!selectedCustomer.sales?.length ? <div style={{ color: 'var(--text-dim)', fontSize: '.85rem' }}>No hay ventas registradas.</div> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+                  {selectedCustomer.sales.map((sale: any) => {
+                    const creditPayments = sale.allocations || [];
+                    return <div key={sale.id} style={{ padding: '1rem', border: '1px solid var(--bg-card-border)', borderRadius: 'var(--radius-md)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.5rem', flexWrap: 'wrap' }}>
+                        <strong>Pedido #{sale.id.slice(-8).toUpperCase()} · {sale.paymentMethod === 'CREDITO' ? 'A crédito' : sale.paymentMethod}</strong>
+                        <span>{new Date(sale.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      </div>
+                      <div style={{ margin: '.55rem 0', fontSize: '.84rem', color: 'var(--text-muted)' }}>{sale.items?.map((item: any) => <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{item.product?.name} × {item.quantity} · ${item.unitPrice.toLocaleString('es-CO')} c/u</span><span>${item.subtotal.toLocaleString('es-CO')}</span></div>)}</div>
+                      <div style={{ borderTop: '1px dashed var(--bg-card-border)', paddingTop: '.5rem', display: 'grid', gap: '.25rem', fontSize: '.85rem' }}>
+                        <span>Total: ${sale.totalAmount.toLocaleString('es-CO')} · Abono inicial: ${Math.max(0, (sale.cashGiven || 0) - (sale.changeGiven || 0)).toLocaleString('es-CO')}</span>
+                        <span>Saldo pendiente: <b style={{ color: sale.pendingAmount > 0 ? 'var(--danger)' : 'var(--accent)' }}>${(sale.pendingAmount || 0).toLocaleString('es-CO')}</b></span>
+                        {creditPayments.map((allocation: any) => <span key={allocation.id} style={{ color: 'var(--accent)' }}>Abono ${allocation.amount.toLocaleString('es-CO')} · {allocation.payment.paymentMethod} · {new Date(allocation.payment.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}{allocation.payment.note ? ` · ${allocation.payment.note}` : ''}</span>)}
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              )}
             </div>
 
             {/* SECCIÓN 1: Pedidos Pendientes */}
@@ -740,10 +843,11 @@ export const Customers: React.FC = () => {
                     <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.85rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
                       <div>
                         <span style={{ fontWeight: 600, color: 'var(--accent)' }}>+ ${p.amount.toLocaleString('es-CO')}</span>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>· {p.paymentMethod || 'Efectivo'}</span>
                         {p.note && <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>— {p.note}</span>}
                       </div>
                       <span style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>
-                        {new Date(p.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(p.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
                       </span>
                     </div>
                   ))}
@@ -756,6 +860,22 @@ export const Customers: React.FC = () => {
               <button onClick={() => setSelectedCustomer(null)} className="btn btn-secondary">
                 Cerrar Detalle
               </button>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.25rem', borderTop: '1px solid var(--bg-card-border)', paddingTop: '1.25rem' }}>
+              <a
+                href={whatsappHref(selectedCustomer, welcomeMessage(selectedCustomer)) || '#'}
+                onClick={e => { if (!selectedCustomer.phone) e.preventDefault(); }}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                aria-disabled={!selectedCustomer.phone}
+                style={{ display: 'inline-flex', textDecoration: 'none', opacity: selectedCustomer.phone ? 1 : 0.5, pointerEvents: selectedCustomer.phone ? 'auto' : 'none' }}
+              >
+                <Send size={16} /> Enviar bienvenida por WhatsApp
+              </a>
+              {selectedCustomer.phone && <a className="btn btn-secondary" href={whatsappHref(selectedCustomer)} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', textDecoration: 'none' }}><Send size={15} /> Escribir nota personalizada</a>}
+              {selectedCustomer.phone && selectedCustomer.balance > 0 && <a className="btn btn-secondary" href={whatsappHref(selectedCustomer, debtMessage(selectedCustomer))} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', textDecoration: 'none', color: 'var(--warning)' }}><Send size={15} /> Recordar saldo pendiente</a>}
             </div>
           </div>
         </div>
@@ -817,6 +937,12 @@ export const Customers: React.FC = () => {
                 </button>
               )}
 
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Medio de pago *</label>
+                <select className="form-input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
+                  <option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Nequi / Transferencia</option><option value="TARJETA">Tarjeta</option><option value="OTRO">Otro</option>
+                </select>
+              </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Observación / Nota (Opcional)</label>
                 <input

@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   ShoppingCart, Plus, Minus, Trash2, CheckCircle2, DollarSign,
-  CreditCard, Banknote, Search, User, Phone, Share2, Printer, X,
+  CreditCard, Banknote, Search, User, Phone, X,
   Clock, Wallet, Check, Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
+import { downloadReceiptPdf, sendReceiptByWhatsApp } from '../utils/receiptPdf';
+import { ReceiptActions } from '../components/ReceiptActions';
 
 /* ─────────── tipos ─────────── */
 type PaymentMethod = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CREDITO';
@@ -14,13 +16,17 @@ interface CustomerSearchResult {
   cedula: string;
   name: string;
   phone: string | null;
+  whatsappOptIn: boolean;
+  email: string | null;
   address: string | null;
   balance: number;
+  creditLimit: number;
   pendingOrdersCount: number;
   pendingOrdersTotal: number;
 }
 
 interface SaleResult {
+  whatsappWelcome?: { name: string; phone: string } | null;
   sale: {
     id: string;
     totalAmount: number;
@@ -32,9 +38,11 @@ interface SaleResult {
     customerCedula?: string | null;
     customerName: string | null;
     customerPhone: string | null;
+    customerEmail?: string | null;
     customerNote: string | null;
+    createdAt?: string;
     items: { product: { name: string }; quantity: number; unitPrice: number; subtotal: number }[];
-    customer?: { id: string; cedula: string; name: string; balance: number } | null;
+    customer?: { id: string; cedula: string; name: string; email?: string | null; balance: number; creditLimit: number } | null;
   };
   metrics: { totalAmount: number; totalCost: number; netProfit: number };
 }
@@ -47,39 +55,13 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   CREDITO: 'A Crédito / Fiado'
 };
 
-function buildWhatsappText(result: SaleResult, storeName: string, business?: any): string {
-  const { sale } = result;
-  const lines = [
-    `🧾 *Recibo de Venta — ${storeName}*`,
-  ];
-  if (business?.documentNumber) lines.push(`📄 ${business.documentType || 'NIT'}: ${business.documentNumber}`);
-  if (business?.address) lines.push(`📍 Dirección: ${business.address}`);
-  if (business?.phone) lines.push(`📞 Teléfono: ${business.phone}`);
-  lines.push(``);
-  if (sale.customerName) {
-    lines.push(`👤 Cliente: *${sale.customerName}*${sale.customerCedula ? ` (CC: ${sale.customerCedula})` : ''}`);
-  }
-  lines.push(`💳 Método de pago: ${METHOD_LABEL[sale.paymentMethod]}`);
-  if (sale.paymentMethod === 'CREDITO' && sale.pendingAmount && sale.pendingAmount > 0) {
-    lines.push(`⚠️ *Saldo por pagar: $${sale.pendingAmount.toLocaleString('es-CO')}*`);
-  }
-  lines.push(``);
-  lines.push(`*Productos:*`);
-  sale.items.forEach(it => {
-    lines.push(`  • ${it.product.name} x${it.quantity} → $${it.subtotal.toLocaleString('es-CO')}`);
-  });
-  lines.push(``);
-  lines.push(`*Total: $${sale.totalAmount.toLocaleString('es-CO')}*`);
-  if (sale.changeGiven && sale.changeGiven > 0) {
-    lines.push(`Vuelto: $${sale.changeGiven.toLocaleString('es-CO')}`);
-  }
-  if (sale.customerNote) lines.push(`\n📝 Nota: ${sale.customerNote}`);
-  const footer = business?.receiptMessage || '¡Gracias por su compra! 🙏';
-  lines.push(`\n${footer}`);
-  return lines.join('\n');
-}
+const initialWhatsAppMessageUrl = (phone: string, name: string, business: string) => {
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) digits = `57${digits}`;
+  const message = `Hola ${name}, gracias por preferir ${business}. Te damos la bienvenida. Guarda este número para que podamos atenderte por WhatsApp cuando lo necesites. ¡Estamos para ayudarte!`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+};
 
-/* ─────────── componente POS ─────────── */
 export const POS: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [cart, setCart] = useState<{ product: any; quantity: number }[]>([]);
@@ -93,9 +75,12 @@ export const POS: React.FC = () => {
   const [customerCedula, setCustomerCedula] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerNote, setCustomerNote] = useState('');
   const [customerBalance, setCustomerBalance] = useState<number>(0);
+  const [customerCreditLimit, setCustomerCreditLimit] = useState<number>(0);
   const [customerPendingOrders, setCustomerPendingOrders] = useState<number>(0);
 
   /* búsqueda / autocomplete de cliente */
@@ -108,20 +93,23 @@ export const POS: React.FC = () => {
   const [saleSuccess, setSaleSuccess] = useState<SaleResult | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [business, setBusiness] = useState<any>(null);
+  const [adminName, setAdminName] = useState('');
 
   /* nombre del comercio configurado */
   const storeName = business?.name || localStorage.getItem('stockflow_business_name') || 'StockFlow Connect';
 
   const fetchProducts = async () => {
     try {
-      const [prodRes, bizRes] = await Promise.all([
+      const [prodRes, bizRes, userRes] = await Promise.all([
         api.get('/products?limit=100'),
-        api.get('/settings/business').catch(() => null)
+        api.get('/settings/business').catch(() => null),
+        api.get('/auth/me').catch(() => null)
       ]);
       setProducts(prodRes.data.products || []);
       if (bizRes?.data?.settings) {
         setBusiness(bizRes.data.settings);
       }
+      if (userRes?.data?.user?.name) setAdminName(userRes.data.user.name);
     } catch (err) {
       console.error('Error cargando datos para POS:', err);
     }
@@ -149,6 +137,7 @@ export const POS: React.FC = () => {
     if (selectedCustomerId) {
       setSelectedCustomerId(null);
       setCustomerBalance(0);
+      setCustomerCreditLimit(0);
       setCustomerPendingOrders(0);
     }
 
@@ -179,8 +168,11 @@ export const POS: React.FC = () => {
     setCustomerCedula(c.cedula);
     setCustomerName(c.name);
     setCustomerPhone(c.phone || '');
+    setWhatsappOptIn(c.whatsappOptIn || false);
+    setCustomerEmail(c.email || '');
     setCustomerAddress(c.address || '');
     setCustomerBalance(c.balance || 0);
+    setCustomerCreditLimit(c.creditLimit || 0);
     setCustomerPendingOrders(c.pendingOrdersCount || 0);
     setShowSuggestions(false);
   };
@@ -191,9 +183,12 @@ export const POS: React.FC = () => {
     setCustomerCedula('');
     setCustomerName('');
     setCustomerPhone('');
+    setWhatsappOptIn(false);
+    setCustomerEmail('');
     setCustomerAddress('');
     setCustomerNote('');
     setCustomerBalance(0);
+    setCustomerCreditLimit(0);
     setCustomerPendingOrders(0);
     setShowSuggestions(false);
   };
@@ -257,10 +252,14 @@ export const POS: React.FC = () => {
         setErrorMsg('Para vender a crédito (fiado), debes registrar la Cédula y Nombre del cliente.');
         return;
       }
+      if (creditPendingAmount > Math.max(0, customerCreditLimit - customerBalance)) {
+        setErrorMsg(`Cupo de crédito alcanzado. Disponible: $${Math.max(0, customerCreditLimit - customerBalance).toLocaleString('es-CO')}. Registra un abono o solicita al administrador ampliar el cupo.`);
+        return;
+      }
     }
 
     // Si se llenó algún dato de cliente, la cédula y el nombre son obligatorios
-    const hasAnyCustomerData = customerCedula.trim() || customerName.trim() || customerPhone.trim();
+    const hasAnyCustomerData = customerCedula.trim() || customerName.trim() || customerPhone.trim() || customerEmail.trim();
     if (hasAnyCustomerData && (!customerCedula.trim() || !customerName.trim())) {
       setShowCustomer(true);
       setErrorMsg('La cédula de ciudadanía y el nombre son obligatorios para identificar o registrar al cliente.');
@@ -283,6 +282,8 @@ export const POS: React.FC = () => {
         customerCedula: customerCedula.trim() || undefined,
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
+        whatsappOptIn,
+        customerEmail: customerEmail.trim() || undefined,
         customerAddress: customerAddress.trim() || undefined,
         customerNote: customerNote.trim() || undefined,
         items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity }))
@@ -305,12 +306,11 @@ export const POS: React.FC = () => {
   /* acciones del modal de éxito */
   const handleShareWhatsapp = () => {
     if (!saleSuccess) return;
-    const text = encodeURIComponent(buildWhatsappText(saleSuccess, storeName, business));
-    const phone = saleSuccess.sale.customerPhone?.replace(/\D/g, '') ?? '';
-    const url = phone
-      ? `https://wa.me/${phone.startsWith('57') ? phone : '57' + phone}?text=${text}`
-      : `https://wa.me/?text=${text}`;
-    window.open(url, '_blank');
+    sendReceiptByWhatsApp(saleSuccess.sale, business, adminName);
+  };
+
+  const handleDownloadPdf = () => {
+    if (saleSuccess) downloadReceiptPdf(saleSuccess.sale, business, adminName);
   };
 
   const handlePrint = () => {
@@ -330,7 +330,7 @@ export const POS: React.FC = () => {
         .row{display:flex;justify-content:space-between}.total{font-weight:700;font-size:1rem}
         .center{text-align:center}
       </style></head><body>
-      <h2>🧾 Recibo de Venta</h2>
+      <h2>Factura Electrónica de Venta</h2>
       <p class="center" style="font-weight:700;font-size:12px">${storeName}</p>
       ${docInfo ? `<p class="center" style="font-size:11px;color:#666">${docInfo}</p>` : ''}
       ${addressInfo ? `<p class="center" style="font-size:11px;color:#666">${addressInfo}</p>` : ''}
@@ -623,6 +623,24 @@ export const POS: React.FC = () => {
                     value={customerPhone}
                     onChange={e => setCustomerPhone(e.target.value)}
                   />
+                  {customerPhone.trim() && <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.55rem', marginTop: '.5rem', color: 'var(--text-muted)', fontSize: '.78rem', lineHeight: 1.4 }}>
+                    <input type="checkbox" checked={whatsappOptIn} onChange={e => setWhatsappOptIn(e.target.checked)} style={{ marginTop: 2 }} />
+                    El cliente autoriza recibir un mensaje de bienvenida por WhatsApp para guardar nuestro contacto.
+                  </label>}
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '0.2rem' }}>
+                    Correo electrónico (Opcional)
+                  </label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+                    placeholder="correo@ejemplo.com"
+                    value={customerEmail}
+                    onChange={e => setCustomerEmail(e.target.value)}
+                  />
                 </div>
 
                 {/* Dirección */}
@@ -759,6 +777,9 @@ export const POS: React.FC = () => {
                 <CheckCircle2 size={48} color="var(--accent)" />
               </div>
               <h2 style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>¡Venta Exitosa!</h2>
+              {saleSuccess.sale.paymentMethod === 'CREDITO' && saleSuccess.sale.customer && saleSuccess.sale.customer.creditLimit > 0 && saleSuccess.sale.customer.balance >= saleSuccess.sale.customer.creditLimit && (
+                <p style={{ color: 'var(--danger)', fontWeight: 600, padding: '.6rem', background: 'rgba(239,68,68,.08)', borderRadius: 'var(--radius-md)' }}>Alerta: el cliente alcanzó el tope de su cupo de crédito. No se autorizarán nuevos créditos hasta registrar abonos o ampliar el cupo.</p>
+              )}
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 Ref: #{saleSuccess.sale.id.slice(-8).toUpperCase()}
               </p>
@@ -824,19 +845,18 @@ export const POS: React.FC = () => {
 
             {/* Acciones */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              {/* Enviar por WhatsApp — solo si hay teléfono */}
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%', background: '#25D366', borderColor: '#25D366', color: '#fff', justifyContent: 'center' }}
-                onClick={handleShareWhatsapp}
-              >
-                <Share2 size={16} /> Compartir Recibo por WhatsApp
-              </button>
+              {saleSuccess.whatsappWelcome && <a
+                className="btn btn-secondary"
+                href={initialWhatsAppMessageUrl(saleSuccess.whatsappWelcome.phone, saleSuccess.whatsappWelcome.name, storeName)}
+                target="_blank" rel="noreferrer" style={{ textDecoration: 'none', justifyContent: 'center' }}
+              ><Phone size={16} /> Preparar mensaje inicial por WhatsApp</a>}
+              <ReceiptActions
+                onWhatsApp={handleShareWhatsapp}
+                onDownloadPdf={handleDownloadPdf}
+                onPrint={handlePrint}
+              />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-                <button className="btn btn-secondary" style={{ justifyContent: 'center' }} onClick={handlePrint}>
-                  <Printer size={16} /> Imprimir Recibo
-                </button>
                 <button className="btn btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setSaleSuccess(null)}>
                   Nueva Venta
                 </button>

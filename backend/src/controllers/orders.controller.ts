@@ -19,6 +19,28 @@ export const createOrderController = async (req: Request, res: Response, next: N
   }
 };
 
+export const createAdminWhatsAppOrderController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const order = await ordersService.createAdminWhatsAppOrder(req.body);
+    res.status(201).json({ message: 'Pedido de WhatsApp registrado como pendiente de recogida.', order });
+  } catch (error) { next(error); }
+};
+
+export const updateOrderPaymentMethodController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const order = await ordersService.setOrderPaymentMethod(id, req.body.paymentMethod);
+    res.status(200).json({ order });
+  } catch (error) { next(error); }
+};
+
+export const createOrderFromWhatsAppCodeController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await ordersService.createOrderFromWhatsAppCode(String(req.body.code || ''));
+    res.status(result.alreadyRegistered ? 200 : 201).json({ message: result.alreadyRegistered ? 'Este pedido ya estaba registrado.' : 'Pedido guardado como pendiente.', ...result });
+  } catch (error) { next(error); }
+};
+
 export const getAdminOrdersController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const orders = await ordersService.getAdminOrders();
@@ -37,6 +59,32 @@ export const updateOrderStatusController = async (req: Request, res: Response, n
   } catch (error) {
     next(error);
   }
+};
+
+export const deleteCancelledOrderController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const result = await ordersService.deleteCancelledOrder(id);
+    res.status(200).json(result);
+  } catch (error) { next(error); }
+};
+
+export const verifyWhatsAppWebhookController = async (req: Request, res: Response): Promise<void> => {
+  const { whatsappService } = await import('../services/whatsapp.service.js');
+  const challenge = await whatsappService.verifyWebhook(String(req.query['hub.mode'] || ''), String(req.query['hub.verify_token'] || ''), String(req.query['hub.challenge'] || ''));
+  if (challenge) res.status(200).send(challenge);
+  else res.sendStatus(403);
+};
+
+export const receiveWhatsAppWebhookController = async (req: Request, res: Response): Promise<void> => {
+  const { whatsappService } = await import('../services/whatsapp.service.js');
+  if (!whatsappService.verifySignature((req as Request & { rawBody?: Buffer }).rawBody, req.header('x-hub-signature-256'))) {
+    res.sendStatus(401);
+    return;
+  }
+  res.sendStatus(200);
+  try { await whatsappService.handleWebhook(req.body); }
+  catch (error) { console.error('Error procesando webhook de WhatsApp:', error); }
 };
 
 export const getClientOrdersController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

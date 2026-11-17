@@ -1,0 +1,3 @@
+ALTER TABLE "Order" ADD COLUMN "paymentMethod" TEXT;
+ALTER TABLE "Order" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'WEB';
+

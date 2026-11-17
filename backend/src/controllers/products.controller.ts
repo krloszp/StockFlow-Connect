@@ -53,6 +53,13 @@ export const increaseStockController = async (req: Request, res: Response, next:
   }
 };
 
+export const writeOffController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; const product = await productsService.writeOff(id, Number(req.body.quantity), String(req.body.reason || '')); res.status(200).json({ product }); } catch (error) { next(error); }
+};
+export const getMovementsController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try { const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id; res.status(200).json({ movements: await productsService.getMovements(id) }); } catch (error) { next(error); }
+};
+
 export const deleteProductController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

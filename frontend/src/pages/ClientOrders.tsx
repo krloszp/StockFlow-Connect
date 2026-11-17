@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ShoppingBag, Search, Package, Clock, CheckCircle2, XCircle, ArrowLeft, Phone, ShoppingCart } from 'lucide-react';
 import { api } from '../services/api';
 
-type OrderStatus = 'PENDIENTE' | 'COMPLETADO' | 'CANCELADO';
+type OrderStatus = 'PENDIENTE' | 'LISTO' | 'COMPLETADO' | 'CANCELADO';
 
 interface OrderItem {
   id: string;
@@ -17,6 +17,7 @@ interface Order {
   customerName: string;
   customerPhone: string;
   totalAmount: number;
+  paymentMethod?: string | null;
   status: OrderStatus;
   createdAt: string;
   items: OrderItem[];
@@ -24,6 +25,7 @@ interface Order {
 
 const statusConfig: Record<OrderStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   PENDIENTE:   { label: 'Pendiente',   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',   icon: <Clock size={14} /> },
+  LISTO:       { label: 'Listo para entregar', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', icon: <CheckCircle2 size={14} /> },
   COMPLETADO:  { label: 'Completado',  color: '#10b981', bg: 'rgba(16,185,129,0.12)',   icon: <CheckCircle2 size={14} /> },
   CANCELADO:   { label: 'Cancelado',   color: '#ef4444', bg: 'rgba(239,68,68,0.12)',    icon: <XCircle size={14} /> },
 };
@@ -218,14 +220,14 @@ export const ClientOrders: React.FC = () => {
                         {/* Progress bar */}
                         <div style={{ marginBottom: '1rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            {(['PENDIENTE', 'COMPLETADO'] as OrderStatus[]).map((step, si) => (
+                            {(['PENDIENTE', 'LISTO', 'COMPLETADO'] as OrderStatus[]).map((step, si) => (
                               <span key={step} style={{
                                 fontSize: '0.7rem', fontWeight: 600,
                                 color: order.status === 'CANCELADO'
                                   ? 'var(--text-dim)'
-                                  : (si === 0 || order.status === 'COMPLETADO') ? cfg.color : 'var(--text-dim)',
+                                  : (si === 0 || (si === 1 && ['LISTO', 'COMPLETADO'].includes(order.status)) || order.status === 'COMPLETADO') ? cfg.color : 'var(--text-dim)',
                               }}>
-                                {step === 'PENDIENTE' ? '📋 Recibido' : '✅ Entregado'}
+                                {step === 'PENDIENTE' ? '📋 Recibido' : step === 'LISTO' ? '📦 Listo' : '✅ Entregado'}
                               </span>
                             ))}
                           </div>
@@ -233,7 +235,7 @@ export const ClientOrders: React.FC = () => {
                             <div style={{
                               height: '100%', borderRadius: '4px',
                               background: cfg.color,
-                              width: order.status === 'PENDIENTE' ? '45%' : order.status === 'COMPLETADO' ? '100%' : '15%',
+                              width: order.status === 'PENDIENTE' ? '33%' : order.status === 'LISTO' ? '66%' : order.status === 'COMPLETADO' ? '100%' : '15%',
                               transition: 'width 0.6s ease',
                             }} />
                           </div>
@@ -284,6 +286,7 @@ export const ClientOrders: React.FC = () => {
                             ${order.totalAmount.toLocaleString('es-CO')}
                           </span>
                         </div>
+                        {order.paymentMethod && <div style={{ marginTop: '0.5rem', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Medio de pago elegido: {order.paymentMethod === 'EFECTIVO' ? 'Efectivo' : 'Transferencia'}</div>}
 
                         {order.status === 'CANCELADO' && (
                           <div style={{

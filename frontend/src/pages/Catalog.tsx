@@ -119,6 +119,7 @@ export const Catalog: React.FC = () => {
           {filtered.map(p => (
             <div key={p.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--primary-light)', fontWeight: 700, marginBottom: '.25rem' }}>{p.category || 'General'}</div>
                 <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{p.name}</div>
                 {p.description && <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{p.description}</div>}
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent)', marginBottom: '1rem' }}>

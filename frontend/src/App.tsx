@@ -11,6 +11,7 @@ import { ClientOrders } from './pages/ClientOrders';
 import { SalesHistory } from './pages/SalesHistory';
 import { Customers } from './pages/Customers';
 import { Settings } from './pages/Settings';
+import { AdminOrders } from './pages/AdminOrders';
 import { api } from './services/api';
 import { 
   ShoppingBag, 
@@ -96,6 +97,13 @@ const AdminLayout: React.FC<{
               <History size={18} /> Historial de Ventas
             </button>
             <button
+              className={`btn ${currentTab === 'orders' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'flex-start' }}
+              onClick={() => setTab('orders')}
+            >
+              <ClipboardList size={18} /> Pedidos
+            </button>
+            <button
               className={`btn ${currentTab === 'customers' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ justifyContent: 'flex-start' }}
               onClick={() => setTab('customers')}
@@ -169,6 +177,7 @@ const AdminLayout: React.FC<{
 
 const AdminDashboardContainer: React.FC = () => {
   const [tab, setTab] = useState('dashboard');
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'with-debt'>('all');
   const [businessName, setBusinessName] = useState(() => localStorage.getItem('stockflow_business_name') || 'StockFlow Connect');
 
   useEffect(() => {
@@ -189,11 +198,12 @@ const AdminDashboardContainer: React.FC = () => {
       businessName={businessName} 
       setBusinessName={setBusinessName}
     >
-      {tab === 'dashboard' && <Dashboard />}
+      {tab === 'dashboard' && <Dashboard onViewDebtors={() => { setCustomerFilter('with-debt'); setTab('customers'); }} onViewOrders={() => setTab('orders')} />}
       {tab === 'inventory' && <Inventory />}
       {tab === 'pos' && <POS />}
       {tab === 'sales-history' && <SalesHistory />}
-      {tab === 'customers' && <Customers />}
+      {tab === 'orders' && <AdminOrders />}
+      {tab === 'customers' && <Customers initialFilter={customerFilter} />}
       {tab === 'suppliers' && <Suppliers />}
       {tab === 'settings' && <Settings onBusinessUpdated={setBusinessName} />}
     </AdminLayout>
